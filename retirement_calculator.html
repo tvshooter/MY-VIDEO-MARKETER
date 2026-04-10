@@ -1,0 +1,633 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>Retirement Savings Calculator</title>
+  <style>
+    *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+
+    body {
+      font-family: system-ui, -apple-system, sans-serif;
+      background: #0f172a;
+      color: #e2e8f0;
+      min-height: 100vh;
+      padding: 2rem 1rem;
+    }
+
+    h1 {
+      text-align: center;
+      font-size: 1.75rem;
+      font-weight: 700;
+      color: #f8fafc;
+      margin-bottom: 0.25rem;
+    }
+
+    .subtitle {
+      text-align: center;
+      color: #94a3b8;
+      font-size: 0.9rem;
+      margin-bottom: 2rem;
+    }
+
+    .card {
+      background: #1e293b;
+      border: 1px solid #334155;
+      border-radius: 12px;
+      padding: 1.5rem;
+      margin-bottom: 1.25rem;
+      max-width: 700px;
+      margin-left: auto;
+      margin-right: auto;
+    }
+
+    .card h2 {
+      font-size: 1rem;
+      font-weight: 600;
+      color: #7dd3fc;
+      text-transform: uppercase;
+      letter-spacing: 0.05em;
+      margin-bottom: 1rem;
+      padding-bottom: 0.5rem;
+      border-bottom: 1px solid #334155;
+    }
+
+    .row {
+      display: grid;
+      grid-template-columns: 1fr 1fr;
+      gap: 1rem;
+    }
+
+    @media (max-width: 520px) { .row { grid-template-columns: 1fr; } }
+
+    .field {
+      display: flex;
+      flex-direction: column;
+      gap: 0.35rem;
+    }
+
+    label {
+      font-size: 0.8rem;
+      color: #94a3b8;
+      font-weight: 500;
+    }
+
+    .hint {
+      font-size: 0.72rem;
+      color: #64748b;
+      margin-top: -0.15rem;
+    }
+
+    input[type="number"] {
+      background: #0f172a;
+      border: 1px solid #475569;
+      border-radius: 6px;
+      color: #f1f5f9;
+      padding: 0.5rem 0.65rem;
+      font-size: 0.95rem;
+      width: 100%;
+      transition: border-color 0.15s;
+    }
+
+    input[type="number"]:focus {
+      outline: none;
+      border-color: #38bdf8;
+    }
+
+    input[type="number"]::placeholder { color: #475569; }
+
+    .prefix-wrap {
+      position: relative;
+    }
+
+    .prefix-wrap span {
+      position: absolute;
+      left: 0.6rem;
+      top: 50%;
+      transform: translateY(-50%);
+      color: #64748b;
+      font-size: 0.9rem;
+      pointer-events: none;
+    }
+
+    .prefix-wrap input { padding-left: 1.4rem; }
+
+    .suffix-wrap {
+      position: relative;
+    }
+
+    .suffix-wrap span {
+      position: absolute;
+      right: 0.6rem;
+      top: 50%;
+      transform: translateY(-50%);
+      color: #64748b;
+      font-size: 0.9rem;
+      pointer-events: none;
+    }
+
+    .suffix-wrap input { padding-right: 1.75rem; }
+
+    .account-block {
+      border: 1px solid #334155;
+      border-radius: 8px;
+      padding: 1rem;
+      margin-bottom: 0.75rem;
+    }
+
+    .account-block h3 {
+      font-size: 0.85rem;
+      font-weight: 600;
+      color: #e2e8f0;
+      margin-bottom: 0.75rem;
+    }
+
+    .tag {
+      display: inline-block;
+      font-size: 0.65rem;
+      padding: 0.1rem 0.45rem;
+      border-radius: 999px;
+      margin-left: 0.4rem;
+      vertical-align: middle;
+      font-weight: 600;
+    }
+
+    .tag-pretax  { background: #1e3a5f; color: #7dd3fc; }
+    .tag-taxfree { background: #14532d; color: #86efac; }
+    .tag-deferred { background: #3b1f6e; color: #c4b5fd; }
+    .tag-cash    { background: #422006; color: #fdba74; }
+
+    button {
+      display: block;
+      width: 100%;
+      max-width: 700px;
+      margin: 0 auto 1.5rem;
+      padding: 0.75rem;
+      background: #0ea5e9;
+      color: #fff;
+      font-size: 1rem;
+      font-weight: 600;
+      border: none;
+      border-radius: 8px;
+      cursor: pointer;
+      transition: background 0.15s;
+    }
+
+    button:hover { background: #0284c7; }
+
+    #results { display: none; }
+
+    .result-grid {
+      display: grid;
+      grid-template-columns: repeat(auto-fit, minmax(140px, 1fr));
+      gap: 0.75rem;
+      margin-bottom: 1rem;
+    }
+
+    .stat {
+      background: #0f172a;
+      border: 1px solid #334155;
+      border-radius: 8px;
+      padding: 0.85rem 0.75rem;
+      text-align: center;
+    }
+
+    .stat .label {
+      font-size: 0.7rem;
+      color: #64748b;
+      text-transform: uppercase;
+      letter-spacing: 0.04em;
+      margin-bottom: 0.3rem;
+    }
+
+    .stat .value {
+      font-size: 1.25rem;
+      font-weight: 700;
+      color: #f8fafc;
+    }
+
+    .stat .sub {
+      font-size: 0.7rem;
+      color: #64748b;
+      margin-top: 0.15rem;
+    }
+
+    .breakdown table {
+      width: 100%;
+      border-collapse: collapse;
+      font-size: 0.85rem;
+    }
+
+    .breakdown th {
+      text-align: left;
+      padding: 0.5rem 0.6rem;
+      color: #64748b;
+      font-weight: 500;
+      font-size: 0.75rem;
+      text-transform: uppercase;
+      border-bottom: 1px solid #334155;
+    }
+
+    .breakdown td {
+      padding: 0.6rem 0.6rem;
+      border-bottom: 1px solid #1e293b;
+      color: #cbd5e1;
+    }
+
+    .breakdown tr:last-child td { border-bottom: none; }
+
+    .breakdown td:not(:first-child) { text-align: right; }
+    .breakdown th:not(:first-child) { text-align: right; }
+
+    .total-row td {
+      font-weight: 700;
+      color: #f8fafc;
+      border-top: 1px solid #475569;
+      padding-top: 0.75rem;
+    }
+
+    .note {
+      font-size: 0.72rem;
+      color: #64748b;
+      line-height: 1.5;
+      margin-top: 0.75rem;
+    }
+
+    .note strong { color: #94a3b8; }
+
+    .highlight-green { color: #86efac; }
+    .highlight-blue  { color: #7dd3fc; }
+
+    .inflation-bar {
+      margin-top: 1rem;
+    }
+
+    .bar-label {
+      display: flex;
+      justify-content: space-between;
+      font-size: 0.75rem;
+      color: #94a3b8;
+      margin-bottom: 0.3rem;
+    }
+
+    .bar-track {
+      background: #334155;
+      border-radius: 999px;
+      height: 10px;
+      overflow: hidden;
+    }
+
+    .bar-fill {
+      height: 100%;
+      border-radius: 999px;
+      background: linear-gradient(90deg, #0ea5e9, #38bdf8);
+      transition: width 0.5s ease;
+    }
+
+    .error {
+      background: #450a0a;
+      border: 1px solid #7f1d1d;
+      color: #fca5a5;
+      border-radius: 8px;
+      padding: 0.75rem 1rem;
+      font-size: 0.85rem;
+      max-width: 700px;
+      margin: 0 auto 1rem;
+      display: none;
+    }
+  </style>
+</head>
+<body>
+
+<h1>Retirement Savings Calculator</h1>
+<p class="subtitle">Project your nest egg and see what it's worth in today's dollars.</p>
+
+<!-- Ages -->
+<div class="card">
+  <h2>Your Timeline</h2>
+  <div class="row">
+    <div class="field">
+      <label>Current Age</label>
+      <input type="number" id="currentAge" value="40" min="1" max="100" />
+    </div>
+    <div class="field">
+      <label>Retirement Age</label>
+      <input type="number" id="retirementAge" value="65" min="1" max="100" />
+    </div>
+  </div>
+</div>
+
+<!-- Accounts -->
+<div class="card">
+  <h2>Account Balances &amp; Contributions</h2>
+
+  <!-- IRA -->
+  <div class="account-block">
+    <h3>Traditional IRA <span class="tag tag-pretax">Pre-Tax</span></h3>
+    <div class="row">
+      <div class="field">
+        <label>Current Balance</label>
+        <div class="prefix-wrap"><span>$</span>
+          <input type="number" id="iraBalance" value="0" min="0" placeholder="0" />
+        </div>
+      </div>
+      <div class="field">
+        <label>Annual Contribution</label>
+        <div class="prefix-wrap"><span>$</span>
+          <input type="number" id="iraContrib" value="0" min="0" placeholder="0" />
+        </div>
+        <span class="hint">2025 limit: $7,000 ($8,000 if 50+)</span>
+      </div>
+      <div class="field">
+        <label>Expected Annual Return</label>
+        <div class="suffix-wrap"><span>%</span>
+          <input type="number" id="iraReturn" value="7" min="0" max="30" step="0.1" />
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <!-- Roth -->
+  <div class="account-block">
+    <h3>Roth IRA <span class="tag tag-taxfree">Tax-Free Growth</span></h3>
+    <div class="row">
+      <div class="field">
+        <label>Current Balance</label>
+        <div class="prefix-wrap"><span>$</span>
+          <input type="number" id="rothBalance" value="0" min="0" placeholder="0" />
+        </div>
+      </div>
+      <div class="field">
+        <label>Annual Contribution</label>
+        <div class="prefix-wrap"><span>$</span>
+          <input type="number" id="rothContrib" value="0" min="0" placeholder="0" />
+        </div>
+        <span class="hint">Same limits as Traditional IRA (combined)</span>
+      </div>
+      <div class="field">
+        <label>Expected Annual Return</label>
+        <div class="suffix-wrap"><span>%</span>
+          <input type="number" id="rothReturn" value="7" min="0" max="30" step="0.1" />
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <!-- Annuity -->
+  <div class="account-block">
+    <h3>Annuity <span class="tag tag-deferred">Tax-Deferred</span></h3>
+    <div class="row">
+      <div class="field">
+        <label>Current Balance / Value</label>
+        <div class="prefix-wrap"><span>$</span>
+          <input type="number" id="annuityBalance" value="0" min="0" placeholder="0" />
+        </div>
+      </div>
+      <div class="field">
+        <label>Annual Premium / Contribution</label>
+        <div class="prefix-wrap"><span>$</span>
+          <input type="number" id="annuityContrib" value="0" min="0" placeholder="0" />
+        </div>
+      </div>
+      <div class="field">
+        <label>Expected Annual Return</label>
+        <div class="suffix-wrap"><span>%</span>
+          <input type="number" id="annuityReturn" value="5" min="0" max="30" step="0.1" />
+        </div>
+        <span class="hint">Fixed annuities ~3–5%; variable varies</span>
+      </div>
+    </div>
+  </div>
+
+  <!-- Cash -->
+  <div class="account-block">
+    <h3>Cash / Savings <span class="tag tag-cash">Taxable</span></h3>
+    <div class="row">
+      <div class="field">
+        <label>Current Balance</label>
+        <div class="prefix-wrap"><span>$</span>
+          <input type="number" id="cashBalance" value="0" min="0" placeholder="0" />
+        </div>
+      </div>
+      <div class="field">
+        <label>Annual Savings Added</label>
+        <div class="prefix-wrap"><span>$</span>
+          <input type="number" id="cashContrib" value="0" min="0" placeholder="0" />
+        </div>
+      </div>
+      <div class="field">
+        <label>Expected Annual Return</label>
+        <div class="suffix-wrap"><span>%</span>
+          <input type="number" id="cashReturn" value="4.5" min="0" max="30" step="0.1" />
+        </div>
+        <span class="hint">HYSA ~4–5%; brokerage varies</span>
+      </div>
+    </div>
+  </div>
+</div>
+
+<!-- Assumptions -->
+<div class="card">
+  <h2>Assumptions</h2>
+  <div class="row">
+    <div class="field">
+      <label>Expected Inflation Rate</label>
+      <div class="suffix-wrap"><span>%</span>
+        <input type="number" id="inflation" value="3" min="0" max="20" step="0.1" />
+      </div>
+      <span class="hint">US historical avg ~3%; recent avg ~4%</span>
+    </div>
+    <div class="field">
+      <label>Effective Tax Rate at Retirement</label>
+      <div class="suffix-wrap"><span>%</span>
+        <input type="number" id="taxRate" value="22" min="0" max="60" step="1" />
+      </div>
+      <span class="hint">Applies to IRA &amp; Annuity withdrawals</span>
+    </div>
+  </div>
+</div>
+
+<div class="error" id="errorBox"></div>
+
+<button onclick="calculate()">Calculate My Retirement</button>
+
+<!-- Results -->
+<div id="results">
+
+  <div class="card" id="summaryCard">
+    <h2>Summary at Retirement</h2>
+    <div class="result-grid" id="statGrid"></div>
+
+    <div class="inflation-bar">
+      <div class="bar-label">
+        <span>Purchasing Power Retained vs. Nominal Value</span>
+        <span id="ppPct"></span>
+      </div>
+      <div class="bar-track">
+        <div class="bar-fill" id="ppBar" style="width:0%"></div>
+      </div>
+    </div>
+  </div>
+
+  <div class="card breakdown">
+    <h2>Account Breakdown</h2>
+    <table>
+      <thead>
+        <tr>
+          <th>Account</th>
+          <th>Future Value</th>
+          <th>After-Tax Value</th>
+          <th>In Today's $</th>
+        </tr>
+      </thead>
+      <tbody id="breakdownBody"></tbody>
+    </table>
+    <p class="note" id="notesText"></p>
+  </div>
+
+</div>
+
+<script>
+  function fv(pv, pmt, r, n) {
+    // Future value: lump sum + annuity of contributions
+    if (r === 0) return pv + pmt * n;
+    const g = Math.pow(1 + r, n);
+    return pv * g + pmt * (g - 1) / r;
+  }
+
+  function fmt(n) {
+    return '$' + Math.round(n).toLocaleString('en-US');
+  }
+
+  function showError(msg) {
+    const box = document.getElementById('errorBox');
+    box.textContent = msg;
+    box.style.display = 'block';
+  }
+
+  function clearError() {
+    document.getElementById('errorBox').style.display = 'none';
+  }
+
+  function calculate() {
+    clearError();
+
+    const currentAge    = +document.getElementById('currentAge').value;
+    const retirementAge = +document.getElementById('retirementAge').value;
+
+    if (retirementAge <= currentAge) {
+      showError('Retirement age must be greater than your current age.');
+      return;
+    }
+
+    const years = retirementAge - currentAge;
+
+    const iraBalance     = +document.getElementById('iraBalance').value     || 0;
+    const iraContrib     = +document.getElementById('iraContrib').value     || 0;
+    const iraReturn      = (+document.getElementById('iraReturn').value     || 0) / 100;
+
+    const rothBalance    = +document.getElementById('rothBalance').value    || 0;
+    const rothContrib    = +document.getElementById('rothContrib').value    || 0;
+    const rothReturn     = (+document.getElementById('rothReturn').value    || 0) / 100;
+
+    const annuityBalance = +document.getElementById('annuityBalance').value || 0;
+    const annuityContrib = +document.getElementById('annuityContrib').value || 0;
+    const annuityReturn  = (+document.getElementById('annuityReturn').value || 0) / 100;
+
+    const cashBalance    = +document.getElementById('cashBalance').value    || 0;
+    const cashContrib    = +document.getElementById('cashContrib').value    || 0;
+    const cashReturn     = (+document.getElementById('cashReturn').value    || 0) / 100;
+
+    const inflation = (+document.getElementById('inflation').value || 0) / 100;
+    const taxRate   = (+document.getElementById('taxRate').value   || 0) / 100;
+
+    // Future values (nominal)
+    const iraFV     = fv(iraBalance,     iraContrib,     iraReturn,     years);
+    const rothFV    = fv(rothBalance,    rothContrib,    rothReturn,    years);
+    const annuityFV = fv(annuityBalance, annuityContrib, annuityReturn, years);
+    const cashFV    = fv(cashBalance,    cashContrib,    cashReturn,    years);
+
+    // After-tax values
+    const iraAfterTax     = iraFV     * (1 - taxRate);   // taxed on withdrawal
+    const rothAfterTax    = rothFV;                       // tax-free
+    const annuityAfterTax = annuityFV * (1 - taxRate);   // gains taxed as ordinary income (simplified)
+    const cashAfterTax    = cashFV;                       // already taxed (simplified)
+
+    const totalNominal  = iraFV + rothFV + annuityFV + cashFV;
+    const totalAfterTax = iraAfterTax + rothAfterTax + annuityAfterTax + cashAfterTax;
+
+    // Inflation adjustment factor
+    const inflFactor = Math.pow(1 + inflation, years);
+
+    // Today's dollars (purchasing power)
+    const iraTodayAfterTax     = iraAfterTax     / inflFactor;
+    const rothTodayAfterTax    = rothAfterTax    / inflFactor;
+    const annuityTodayAfterTax = annuityAfterTax / inflFactor;
+    const cashTodayAfterTax    = cashAfterTax    / inflFactor;
+    const totalTodayAfterTax   = totalAfterTax   / inflFactor;
+
+    const ppPct = Math.round((totalAfterTax / totalNominal) * 100) || 0;
+    const ppPctInflAdj = Math.round((totalTodayAfterTax / totalAfterTax) * 100);
+
+    // --- Render summary stats ---
+    const stats = [
+      { label: 'Years to Retire',       value: years + ' yrs',     sub: `Age ${currentAge} → ${retirementAge}` },
+      { label: 'Total Nominal Value',   value: fmt(totalNominal),   sub: 'Before tax & inflation' },
+      { label: 'After-Tax Value',       value: fmt(totalAfterTax),  sub: `After ${Math.round(taxRate*100)}% tax on taxable accts` },
+      { label: "Today's Dollars",       value: fmt(totalTodayAfterTax), sub: `Adj. for ${Math.round(inflation*100)}% inflation` },
+    ];
+
+    document.getElementById('statGrid').innerHTML = stats.map(s => `
+      <div class="stat">
+        <div class="label">${s.label}</div>
+        <div class="value">${s.value}</div>
+        <div class="sub">${s.sub}</div>
+      </div>
+    `).join('');
+
+    // Bar shows how much of the after-tax value survives inflation
+    document.getElementById('ppPct').textContent = ppPctInflAdj + '% of after-tax value';
+    document.getElementById('ppBar').style.width  = Math.min(ppPctInflAdj, 100) + '%';
+
+    // --- Render breakdown table ---
+    const rows = [
+      { name: 'Traditional IRA',  fv: iraFV,     at: iraAfterTax,     today: iraTodayAfterTax     },
+      { name: 'Roth IRA',         fv: rothFV,    at: rothAfterTax,    today: rothTodayAfterTax    },
+      { name: 'Annuity',          fv: annuityFV, at: annuityAfterTax, today: annuityTodayAfterTax },
+      { name: 'Cash / Savings',   fv: cashFV,    at: cashAfterTax,    today: cashTodayAfterTax    },
+    ];
+
+    document.getElementById('breakdownBody').innerHTML = rows.map(r => `
+      <tr>
+        <td>${r.name}</td>
+        <td>${fmt(r.fv)}</td>
+        <td>${fmt(r.at)}</td>
+        <td class="highlight-blue">${fmt(r.today)}</td>
+      </tr>
+    `).join('') + `
+      <tr class="total-row">
+        <td>Total</td>
+        <td>${fmt(totalNominal)}</td>
+        <td>${fmt(totalAfterTax)}</td>
+        <td class="highlight-green">${fmt(totalTodayAfterTax)}</td>
+      </tr>
+    `;
+
+    // Notes
+    document.getElementById('notesText').innerHTML = `
+      <strong>Notes:</strong>
+      Calculations use compound growth applied annually.
+      <strong>Traditional IRA &amp; Annuity</strong>: future value reduced by your estimated tax rate at withdrawal.
+      <strong>Roth IRA</strong>: withdrawals are tax-free (qualified distributions).
+      <strong>Cash/Savings</strong>: assumed already after-tax; gains may be taxable in reality.
+      <strong>Today's Dollars</strong>: after-tax value discounted by ${Math.round(inflation*100)}% inflation over ${years} years
+      (÷ ${inflFactor.toFixed(2)}), showing real purchasing power in current terms.
+      This is an estimate — consult a financial advisor for personalized guidance.
+    `;
+
+    document.getElementById('results').style.display = 'block';
+    document.getElementById('results').scrollIntoView({ behavior: 'smooth', block: 'start' });
+  }
+</script>
+</body>
+</html>
