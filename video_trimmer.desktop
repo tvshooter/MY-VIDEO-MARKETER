@@ -1,0 +1,10 @@
+[Desktop Entry]
+Version=1.0
+Type=Application
+Name=Video Trim & Transcode
+Comment=Detect trailing black frames, trim, and transcode video files
+Exec=/home/user/MY-VIDEO-MARKETER/launch.sh
+Icon=video-x-generic
+Terminal=false
+Categories=AudioVideo;Video;
+StartupNotify=true
