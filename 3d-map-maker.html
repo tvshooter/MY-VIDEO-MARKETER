@@ -1,0 +1,769 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>3D Map Animator</title>
+<link rel="stylesheet" href="https://cesium.com/downloads/cesiumjs/releases/1.115/Build/Cesium/Widgets/widgets.css">
+<script src="https://cesium.com/downloads/cesiumjs/releases/1.115/Build/Cesium/Cesium.js"></script>
+<style>
+*{box-sizing:border-box;margin:0;padding:0}
+html,body{height:100%;overflow:hidden;background:#0a0f1a;color:#e2e8f0;font-family:'Segoe UI',system-ui,sans-serif;font-size:13px}
+
+/* ── Layout ── */
+#app{display:flex;flex-direction:column;height:100vh}
+#topbar{display:flex;align-items:center;gap:8px;padding:0 14px;height:50px;background:#0d1526;border-bottom:1px solid #1e293b;flex-shrink:0;z-index:10}
+#main{display:flex;flex:1;overflow:hidden;min-height:0}
+#cesiumContainer{flex:1;position:relative}
+#rightPanel{width:272px;flex-shrink:0;background:rgba(13,21,38,0.97);border-left:1px solid #1e293b;display:flex;flex-direction:column;overflow:hidden}
+#bottomPanel{flex-shrink:0;background:#0d1526;border-top:1px solid #1e293b;padding:8px 12px 6px;height:128px}
+
+/* ── Topbar ── */
+.app-title{font-size:15px;font-weight:700;color:#38bdf8;letter-spacing:.5px;white-space:nowrap;margin-right:4px}
+.tb-btn{padding:5px 11px;border:1px solid #334155;background:#1e293b;color:#e2e8f0;border-radius:5px;cursor:pointer;font-size:12px;white-space:nowrap;transition:background .15s}
+.tb-btn:hover{background:#263348}
+.tb-btn.pri{background:#0369a1;border-color:#0284c7;color:#fff}
+.tb-btn.pri:hover{background:#0284c7}
+.tb-btn.rec{background:#7f1d1d;border-color:#dc2626;color:#fca5a5}
+.tb-btn.rec:hover{background:#dc2626;color:#fff}
+.tb-btn.on{background:#78350f;border-color:#ca8a04;color:#fde68a}
+#tokenArea{display:flex;gap:6px;align-items:center;margin-left:auto}
+#tokenInput{width:200px;padding:4px 8px;background:#1e293b;border:1px solid #334155;border-radius:4px;color:#94a3b8;font-size:11px;font-family:monospace}
+#tokenInput:focus{outline:none;border-color:#38bdf8;color:#e2e8f0}
+.tb-sep{width:1px;height:26px;background:#1e293b;flex-shrink:0}
+
+/* ── Right panel ── */
+.rp-scroll{flex:1;overflow-y:auto;scrollbar-width:thin;scrollbar-color:#334155 transparent}
+.rp-sec{padding:10px 12px;border-bottom:1px solid #1e293b}
+.rp-title{font-size:10px;font-weight:700;letter-spacing:1px;color:#475569;text-transform:uppercase;margin-bottom:9px}
+.rp-empty{color:#475569;font-size:12px;text-align:center;padding:14px 0;line-height:1.5}
+
+/* ── Control rows ── */
+.cr{display:flex;align-items:center;gap:6px;margin-bottom:8px}
+.cl{font-size:11px;color:#94a3b8;width:66px;flex-shrink:0}
+.cv{font-size:11px;color:#38bdf8;width:56px;text-align:right;font-variant-numeric:tabular-nums;flex-shrink:0}
+input[type=range]{-webkit-appearance:none;width:100%;height:4px;background:#334155;border-radius:2px;outline:none;cursor:pointer;flex:1}
+input[type=range]::-webkit-slider-thumb{-webkit-appearance:none;width:14px;height:14px;background:#38bdf8;border-radius:50%;cursor:pointer}
+input[type=range]::-moz-range-thumb{width:14px;height:14px;background:#38bdf8;border-radius:50%;cursor:pointer;border:none}
+input[type=text],input[type=number],select{width:100%;padding:4px 8px;background:#1e293b;border:1px solid #334155;border-radius:4px;color:#e2e8f0;font-size:12px;outline:none}
+input[type=text]:focus,input[type=number]:focus,select:focus{border-color:#38bdf8}
+select{cursor:pointer;background-image:none}
+.ll{display:flex;gap:5px;margin-bottom:7px}
+.ll input{flex:1}
+.ll span{font-size:10px;color:#64748b;align-self:center;white-space:nowrap}
+.fb{width:100%;padding:6px;border:1px solid #334155;background:#1e293b;color:#e2e8f0;border-radius:5px;cursor:pointer;font-size:12px;margin-bottom:5px;transition:background .15s}
+.fb:hover{background:#263348}
+.fb.del{border-color:#991b1b;color:#fca5a5}
+.fb.del:hover{background:#7f1d1d}
+
+/* ── Pins ── */
+.pin-item{display:flex;align-items:center;gap:6px;padding:4px 3px;border-radius:4px}
+.pin-item:hover{background:#1e293b}
+.pin-dot{width:10px;height:10px;border-radius:50%;flex-shrink:0}
+.pin-lbl{flex:1;font-size:12px;color:#cbd5e1;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+.ic{padding:2px 5px;background:none;border:none;color:#64748b;cursor:pointer;font-size:12px;border-radius:3px}
+.ic:hover{background:#1e293b;color:#e2e8f0}
+
+/* ── Timeline ── */
+#tlHeader{display:flex;align-items:center;gap:7px;margin-bottom:7px}
+#timeDisp{font-family:monospace;font-size:13px;color:#38bdf8;letter-spacing:.5px;min-width:100px}
+#durWrap{display:flex;align-items:center;gap:4px;color:#64748b;font-size:11px;margin-left:auto}
+#durWrap input{width:48px;padding:2px 6px;background:#1e293b;border:1px solid #334155;border-radius:4px;color:#e2e8f0;font-size:11px;text-align:center;outline:none}
+.pb{width:30px;height:30px;border:1px solid #334155;background:#1e293b;color:#e2e8f0;border-radius:6px;cursor:pointer;font-size:13px;display:flex;align-items:center;justify-content:center;transition:background .15s;flex-shrink:0}
+.pb:hover{background:#263348}
+.pb.on{background:#78350f;border-color:#ca8a04}
+#tlBar{position:relative;height:52px;background:#1e293b;border-radius:6px;cursor:pointer;flex:1;margin:0 4px}
+#tlRow{display:flex;align-items:center;gap:0}
+#kfTrack{position:absolute;inset:0;left:10px;right:10px}
+.kfd{position:absolute;width:16px;height:16px;background:#38bdf8;transform:translateX(-50%) rotate(45deg);top:18px;cursor:grab;z-index:2;border:2px solid #0a0f1a;border-radius:2px;transition:background .12s}
+.kfd:hover{background:#7dd3fc;box-shadow:0 0 8px #38bdf840}
+.kfd.sel{background:#f59e0b;border-color:#fcd34d;box-shadow:0 0 10px #f59e0b60}
+.kfl{position:absolute;top:3px;transform:translateX(-50%);font-size:9px;color:#475569;white-space:nowrap;pointer-events:none;max-width:60px;overflow:hidden;text-overflow:ellipsis}
+.kfl.sel{color:#fbbf24}
+#playhead{position:absolute;top:0;bottom:0;width:2px;background:#ef4444;z-index:3;pointer-events:none;transform:translateX(-50%)}
+#playhead::before{content:'';position:absolute;top:-5px;left:50%;transform:translateX(-50%);border-left:5px solid transparent;border-right:5px solid transparent;border-top:7px solid #ef4444}
+#tlHint{font-size:10px;color:#334155;margin-top:4px}
+kbd{background:#1e293b;border:1px solid #334155;border-radius:3px;padding:1px 4px;font-size:10px;color:#64748b}
+
+/* Token banner */
+#tkBanner{display:none;position:fixed;top:60px;left:50%;transform:translateX(-50%);background:#1e293b;border:1px solid #f59e0b;border-radius:8px;padding:14px 16px;z-index:100;max-width:400px;box-shadow:0 8px 32px #00000070;line-height:1.5}
+#tkBanner.show{display:block}
+#tkBanner p{font-size:12px;color:#94a3b8;margin:6px 0}
+#tkBanner a{color:#38bdf8}
+
+/* Cesium cleanup */
+.cesium-widget-credits,.cesium-viewer-bottom{display:none!important}
+.cesium-widget canvas{outline:none}
+</style>
+</head>
+<body>
+<div id="app">
+
+<!-- TOP BAR -->
+<div id="topbar">
+  <span class="app-title">▶ 3D Map Animator</span>
+  <div class="tb-sep"></div>
+  <button class="tb-btn pri" id="btnCapture" title="Capture current camera view as a new keyframe (C)">+ Keyframe</button>
+  <button class="tb-btn" id="btnPinMode" title="Click globe to place a labelled pin (P)">📍 Pin</button>
+  <div class="tb-sep"></div>
+  <button class="tb-btn" id="btnExport" title="Record animation and download as WebM video">⬇ Export Video</button>
+  <div id="tokenArea">
+    <span style="color:#64748b;font-size:11px">Cesium Ion:</span>
+    <input type="text" id="tokenInput" placeholder="paste free token from cesium.com/ion">
+    <button class="tb-btn" id="btnApplyToken">Apply</button>
+    <button class="tb-btn" id="btnTokenHelp" title="About Cesium Ion tokens">?</button>
+  </div>
+</div>
+
+<!-- MAIN AREA -->
+<div id="main">
+  <div id="cesiumContainer"></div>
+
+  <!-- RIGHT PANEL -->
+  <div id="rightPanel">
+    <div class="rp-scroll">
+
+      <!-- Keyframe controls -->
+      <div class="rp-sec">
+        <div class="rp-title">Selected Keyframe</div>
+        <div id="kfEmpty" class="rp-empty">No keyframe selected.<br>Use <strong>+ Keyframe</strong> to<br>capture the current view.</div>
+        <div id="kfPanel" style="display:none">
+          <div class="cr">
+            <span class="cl">Label</span>
+            <input type="text" id="iLabel" placeholder="e.g. New York" style="flex:1">
+          </div>
+          <div class="cr">
+            <span class="cl">Time (s)</span>
+            <input type="number" id="iTime" min="0" step="0.1" style="flex:1">
+          </div>
+          <div style="font-size:10px;color:#475569;margin-bottom:5px">POSITION</div>
+          <div class="ll">
+            <span>Lat</span><input type="number" id="iLat" step="0.0001">
+            <span>Lon</span><input type="number" id="iLon" step="0.0001">
+          </div>
+          <div class="cr">
+            <span class="cl">Alt (km)</span>
+            <input type="number" id="iAlt" step="0.1" min="0" style="flex:1">
+          </div>
+          <div style="font-size:10px;color:#475569;margin:2px 0 5px">CAMERA</div>
+          <div class="cr"><span class="cl">Heading</span><input type="range" id="sHdg" min="0" max="360" step="1"><span class="cv" id="vHdg">0°</span></div>
+          <div class="cr"><span class="cl">Pitch</span><input type="range" id="sPch" min="-90" max="0" step="1"><span class="cv" id="vPch">-45°</span></div>
+          <div class="cr"><span class="cl">Roll</span><input type="range" id="sRoll" min="-180" max="180" step="1"><span class="cv" id="vRoll">0°</span></div>
+          <div class="cr"><span class="cl">FOV</span><input type="range" id="sFov" min="10" max="120" step="1"><span class="cv" id="vFov">60°</span></div>
+          <div class="cr"><span class="cl">Orbit R</span><input type="range" id="sOrb" min="1" max="10000" step="1"><span class="cv" id="vOrb">500 km</span></div>
+          <div class="cr">
+            <span class="cl">Easing</span>
+            <select id="sEase" style="flex:1">
+              <option value="linear">Linear</option>
+              <option value="easeInQuad">Ease In (Quad)</option>
+              <option value="easeOutQuad">Ease Out (Quad)</option>
+              <option value="easeInOutQuad">Ease In/Out (Quad)</option>
+              <option value="easeInCubic">Ease In (Cubic)</option>
+              <option value="easeOutCubic">Ease Out (Cubic)</option>
+              <option value="easeInOutCubic">Ease In/Out (Cubic)</option>
+              <option value="easeInExpo">Ease In (Expo)</option>
+              <option value="easeOutExpo">Ease Out (Expo)</option>
+              <option value="easeInOutExpo">Ease In/Out (Expo)</option>
+            </select>
+          </div>
+          <button class="fb" id="btnGoKF">Go to This Keyframe</button>
+          <button class="fb del" id="btnDelKF">Delete Keyframe</button>
+        </div>
+      </div>
+
+      <!-- Pins -->
+      <div class="rp-sec">
+        <div class="rp-title">Map Pins</div>
+        <button class="fb" id="btnStartPin">📍 Click Globe to Place Pin</button>
+        <div id="pinList"><div class="rp-empty">No pins yet.</div></div>
+      </div>
+
+    </div><!-- /.rp-scroll -->
+  </div><!-- /#rightPanel -->
+</div><!-- /#main -->
+
+<!-- BOTTOM TIMELINE -->
+<div id="bottomPanel">
+  <div id="tlHeader">
+    <button class="pb" id="btnPlay" title="Play / Pause (Space)">▶</button>
+    <button class="pb" id="btnStop" title="Stop (S)">⏹</button>
+    <button class="pb" id="btnLoop" title="Loop">🔄</button>
+    <span id="timeDisp">0:00.0 / 1:00.0</span>
+    <div id="durWrap">Dur: <input type="number" id="iDur" value="60" min="1" max="7200" title="Total duration (seconds)"> s</div>
+  </div>
+  <div id="tlRow">
+    <div id="tlBar">
+      <div id="kfTrack">
+        <div id="playhead" style="left:0"></div>
+      </div>
+    </div>
+  </div>
+  <div id="tlHint">Drag ◆ to reposition · Click track to scrub · <kbd>Space</kbd> play/pause · <kbd>←</kbd><kbd>→</kbd> ±1s · <kbd>C</kbd> capture · <kbd>P</kbd> pin</div>
+</div>
+
+</div><!-- /#app -->
+
+<!-- Token help banner -->
+<div id="tkBanner">
+  <strong style="color:#f59e0b">Cesium Ion — Free Token for 3D Terrain</strong>
+  <p>Sign up free at <a href="https://cesium.com/ion" target="_blank">cesium.com/ion</a>, go to <strong>Access Tokens</strong>, copy your default token, paste it above and click <strong>Apply</strong>.</p>
+  <p>Without a token the globe uses flat terrain with basic imagery. All animation features still work.</p>
+  <button class="fb" style="margin-top:8px" onclick="document.getElementById('tkBanner').classList.remove('show')">Got it</button>
+</div>
+
+<script>
+// ─────────────────────────────────────────────────────────
+// UTILS
+// ─────────────────────────────────────────────────────────
+function uid(){return Math.random().toString(36).slice(2)+Date.now().toString(36)}
+function lerp(a,b,t){return a+(b-a)*t}
+function lerpAng(a,b,t){const d=((b-a+540)%360)-180;return a+d*t}
+function clamp(v,lo,hi){return Math.max(lo,Math.min(hi,v))}
+function fmtTime(s){const m=Math.floor(s/60),ss=Math.floor(s%60),f=Math.floor((s%1)*10);return`${m}:${String(ss).padStart(2,'0')}.${f}`}
+
+// ─────────────────────────────────────────────────────────
+// STATE
+// ─────────────────────────────────────────────────────────
+const S={
+  keyframes:[],pins:[],
+  totalDur:60,playing:false,looping:false,
+  curTime:0,selKfId:null,
+  isRec:false,pinMode:false,
+  lastTs:null
+};
+
+// ─────────────────────────────────────────────────────────
+// EASING
+// ─────────────────────────────────────────────────────────
+const E={
+  linear:t=>t,
+  easeInQuad:t=>t*t,
+  easeOutQuad:t=>t*(2-t),
+  easeInOutQuad:t=>t<.5?2*t*t:-1+(4-2*t)*t,
+  easeInCubic:t=>t*t*t,
+  easeOutCubic:t=>{const u=t-1;return u*u*u+1},
+  easeInOutCubic:t=>t<.5?4*t*t*t:1-Math.pow(-2*t+2,3)/2,
+  easeInExpo:t=>t===0?0:Math.pow(2,10*t-10),
+  easeOutExpo:t=>t===1?1:1-Math.pow(2,-10*t),
+  easeInOutExpo:t=>t===0?0:t===1?1:t<.5?Math.pow(2,20*t-10)/2:(2-Math.pow(2,-20*t+10))/2
+};
+
+// ─────────────────────────────────────────────────────────
+// KEYFRAME MANAGER
+// ─────────────────────────────────────────────────────────
+const KF={
+  _def(o){
+    return{id:uid(),label:'',timeSeconds:0,lat:37.77,lon:-122.42,altKm:800,
+      heading:0,pitch:-45,roll:0,fov:60,orbitRadiusKm:500,easingIn:'easeInOutCubic',...o};
+  },
+  add(props){
+    const k=this._def(props);
+    S.keyframes.push(k);
+    S.keyframes.sort((a,b)=>a.timeSeconds-b.timeSeconds);
+    return k;
+  },
+  remove(id){
+    S.keyframes=S.keyframes.filter(k=>k.id!==id);
+    if(S.selKfId===id)S.selKfId=S.keyframes[0]?.id||null;
+    TL.render();UI.refresh();
+  },
+  update(id,p){
+    const k=S.keyframes.find(k=>k.id===id);
+    if(!k)return;
+    Object.assign(k,p);
+    S.keyframes.sort((a,b)=>a.timeSeconds-b.timeSeconds);
+  },
+  sel(){return S.keyframes.find(k=>k.id===S.selKfId)||null},
+  interp(t){
+    const ks=S.keyframes;
+    if(!ks.length)return null;
+    if(ks.length===1)return{...ks[0]};
+    if(t<=ks[0].timeSeconds)return{...ks[0]};
+    if(t>=ks[ks.length-1].timeSeconds)return{...ks[ks.length-1]};
+    let A=ks[0],B=ks[1];
+    for(let i=0;i<ks.length-1;i++){
+      if(t>=ks[i].timeSeconds&&t<=ks[i+1].timeSeconds){A=ks[i];B=ks[i+1];break}
+    }
+    const raw=(t-A.timeSeconds)/(B.timeSeconds-A.timeSeconds);
+    const te=(E[B.easingIn]||E.linear)(clamp(raw,0,1));
+    return{
+      lat:lerp(A.lat,B.lat,te),lon:lerpAng(A.lon,B.lon,te),
+      altKm:lerp(A.altKm,B.altKm,te),heading:lerpAng(A.heading,B.heading,te),
+      pitch:lerp(A.pitch,B.pitch,te),roll:lerp(A.roll,B.roll,te),
+      fov:lerp(A.fov,B.fov,te),orbitRadiusKm:lerp(A.orbitRadiusKm,B.orbitRadiusKm,te)
+    };
+  }
+};
+
+// ─────────────────────────────────────────────────────────
+// CESIUM VIEWER
+// ─────────────────────────────────────────────────────────
+let viewer=null;
+
+async function initViewer(token){
+  Cesium.Ion.defaultAccessToken=token||'';
+  let terrain;
+  if(token){
+    try{terrain=await Cesium.createWorldTerrainAsync({requestVertexNormals:true})}
+    catch(e){console.warn('Terrain load failed:',e.message)}
+  }
+  const opts={
+    timeline:false,animation:false,homeButton:false,sceneModePicker:false,
+    baseLayerPicker:false,navigationHelpButton:false,geocoder:false,
+    fullscreenButton:false,infoBox:false,selectionIndicator:false,
+    skyAtmosphere:new Cesium.SkyAtmosphere()
+  };
+  if(terrain)opts.terrainProvider=terrain;
+  viewer=new Cesium.Viewer('cesiumContainer',opts);
+  viewer.scene.globe.enableLighting=true;
+  viewer.scene.fog.enabled=true;
+  viewer.scene.screenSpaceCameraController.minimumZoomDistance=50;
+  viewer.scene.screenSpaceCameraController.maximumZoomDistance=25000000;
+  // Start with globe view
+  viewer.camera.setView({
+    destination:Cesium.Cartesian3.fromDegrees(-95,38,14000000),
+    orientation:{heading:0,pitch:Cesium.Math.toRadians(-90),roll:0}
+  });
+  // Click to place pin
+  viewer.screenSpaceEventHandler.setInputAction(ev=>{
+    if(!S.pinMode)return;
+    const ray=viewer.camera.getPickRay(ev.position);
+    const hit=viewer.scene.globe.pick(ray,viewer.scene);
+    let lat,lon,alt=0;
+    if(hit){
+      const c=Cesium.Ellipsoid.WGS84.cartesianToCartographic(hit);
+      lat=Cesium.Math.toDegrees(c.latitude);
+      lon=Cesium.Math.toDegrees(c.longitude);
+      alt=c.height/1000;
+    }else{
+      const p=viewer.camera.pickEllipsoid(ev.position,Cesium.Ellipsoid.WGS84);
+      if(!p)return;
+      const c=Cesium.Ellipsoid.WGS84.cartesianToCartographic(p);
+      lat=Cesium.Math.toDegrees(c.latitude);
+      lon=Cesium.Math.toDegrees(c.longitude);
+    }
+    const lbl=prompt('Pin label:','Location '+(S.pins.length+1));
+    if(lbl===null){setPinMode(false);return}
+    PINS.add({id:uid(),lat,lon,altKm:alt,label:lbl||'Pin',color:'#f59e0b'});
+    setPinMode(false);
+  },Cesium.ScreenSpaceEventType.LEFT_CLICK);
+}
+
+// ─────────────────────────────────────────────────────────
+// CAMERA CONTROLLER
+// ─────────────────────────────────────────────────────────
+const CAM={
+  apply(cs){
+    if(!viewer||!cs)return;
+    try{
+      if(viewer.camera.frustum&&viewer.camera.frustum.fov!==undefined)
+        viewer.camera.frustum.fov=Cesium.Math.toRadians(clamp(cs.fov||60,5,150));
+    }catch(e){}
+    viewer.camera.lookAtTransform(Cesium.Matrix4.IDENTITY);
+    viewer.camera.setView({
+      destination:Cesium.Cartesian3.fromDegrees(cs.lon,cs.lat,cs.altKm*1000),
+      orientation:{
+        heading:Cesium.Math.toRadians(cs.heading||0),
+        pitch:Cesium.Math.toRadians(cs.pitch||-45),
+        roll:Cesium.Math.toRadians(cs.roll||0)
+      }
+    });
+  },
+  capture(){
+    if(!viewer)return null;
+    try{
+      const cam=viewer.camera;
+      const carto=Cesium.Ellipsoid.WGS84.cartesianToCartographic(cam.position);
+      let fov=60;
+      try{fov=Cesium.Math.toDegrees(cam.frustum.fov)}catch(e){}
+      return{
+        lat:Cesium.Math.toDegrees(carto.latitude),
+        lon:Cesium.Math.toDegrees(carto.longitude),
+        altKm:carto.height/1000,
+        heading:Cesium.Math.toDegrees(cam.heading),
+        pitch:Cesium.Math.toDegrees(cam.pitch),
+        roll:Cesium.Math.toDegrees(cam.roll),
+        fov,orbitRadiusKm:500
+      };
+    }catch(e){return null}
+  }
+};
+
+// ─────────────────────────────────────────────────────────
+// PIN MANAGER
+// ─────────────────────────────────────────────────────────
+const PINS={
+  _img(color){
+    const c=document.createElement('canvas');c.width=28;c.height=36;
+    const x=c.getContext('2d');
+    x.fillStyle=color;x.beginPath();x.arc(14,13,11,0,Math.PI*2);x.fill();
+    x.strokeStyle='rgba(255,255,255,0.85)';x.lineWidth=2;x.stroke();
+    x.fillStyle=color;x.beginPath();x.moveTo(14,34);x.lineTo(7,22);x.lineTo(21,22);x.closePath();x.fill();
+    x.fillStyle='rgba(255,255,255,0.9)';x.beginPath();x.arc(14,13,4,0,Math.PI*2);x.fill();
+    return c.toDataURL();
+  },
+  add(pin){
+    const ent=viewer.entities.add({
+      id:pin.id,
+      position:Cesium.Cartesian3.fromDegrees(pin.lon,pin.lat,Math.max(0,pin.altKm||0)*1000),
+      billboard:{
+        image:this._img(pin.color||'#f59e0b'),
+        width:28,height:36,
+        verticalOrigin:Cesium.VerticalOrigin.BOTTOM,
+        disableDepthTestDistance:Number.POSITIVE_INFINITY,
+        heightReference:Cesium.HeightReference.CLAMP_TO_GROUND
+      },
+      label:{
+        text:pin.label||'',
+        font:'bold 13px sans-serif',
+        fillColor:Cesium.Color.WHITE,
+        outlineColor:new Cesium.Color(.05,.12,.22,1),
+        outlineWidth:3,
+        style:Cesium.LabelStyle.FILL_AND_OUTLINE,
+        verticalOrigin:Cesium.VerticalOrigin.BOTTOM,
+        pixelOffset:new Cesium.Cartesian2(0,-40),
+        disableDepthTestDistance:Number.POSITIVE_INFINITY,
+        heightReference:Cesium.HeightReference.CLAMP_TO_GROUND,
+        showBackground:true,
+        backgroundColor:new Cesium.Color(.05,.12,.22,.85),
+        backgroundPadding:new Cesium.Cartesian2(6,3)
+      }
+    });
+    pin._ent=ent;
+    S.pins.push(pin);
+    this.renderList();
+  },
+  remove(id){
+    const p=S.pins.find(p=>p.id===id);
+    if(p?._ent)viewer.entities.remove(p._ent);
+    S.pins=S.pins.filter(p=>p.id!==id);
+    this.renderList();
+  },
+  renderList(){
+    const el=document.getElementById('pinList');
+    if(!S.pins.length){el.innerHTML='<div class="rp-empty">No pins yet.</div>';return}
+    el.innerHTML=S.pins.map(p=>`
+      <div class="pin-item">
+        <span class="pin-dot" style="background:${p.color||'#f59e0b'}"></span>
+        <span class="pin-lbl" title="${p.lat.toFixed(3)}, ${p.lon.toFixed(3)}">${p.label||'Pin'}</span>
+        <button class="ic" onclick="PINS.remove('${p.id}')" title="Remove">✕</button>
+      </div>`).join('');
+  }
+};
+
+// ─────────────────────────────────────────────────────────
+// TIMELINE UI
+// ─────────────────────────────────────────────────────────
+const TL={
+  _drag:null,
+  render(){
+    const track=document.getElementById('kfTrack');
+    [...track.querySelectorAll('.kfd,.kfl')].forEach(e=>e.remove());
+    S.keyframes.forEach(kf=>{
+      const pct=clamp((kf.timeSeconds/S.totalDur)*100,0,100);
+      const isSel=kf.id===S.selKfId;
+      const lbl=document.createElement('div');
+      lbl.className='kfl'+(isSel?' sel':'');
+      lbl.style.left=pct+'%';
+      lbl.textContent=kf.label||fmtTime(kf.timeSeconds);
+      const d=document.createElement('div');
+      d.className='kfd'+(isSel?' sel':'');
+      d.style.left=pct+'%';
+      d.title=(kf.label||'KF')+' @ '+fmtTime(kf.timeSeconds);
+      d.addEventListener('mousedown',ev=>{
+        ev.preventDefault();ev.stopPropagation();
+        S.selKfId=kf.id;
+        const r=document.getElementById('kfTrack').getBoundingClientRect();
+        TL._drag={id:kf.id,startX:ev.clientX,startT:kf.timeSeconds,tw:r.width};
+        TL.render();UI.refresh();
+      });
+      track.appendChild(lbl);
+      track.appendChild(d);
+    });
+  },
+  updHead(){
+    const pct=clamp((S.curTime/S.totalDur)*100,0,100);
+    document.getElementById('playhead').style.left=pct+'%';
+    document.getElementById('timeDisp').textContent=fmtTime(S.curTime)+' / '+fmtTime(S.totalDur);
+  },
+  initEvents(){
+    document.addEventListener('mousemove',ev=>{
+      if(!TL._drag)return;
+      const dx=ev.clientX-TL._drag.startX;
+      const newT=clamp(TL._drag.startT+(dx/TL._drag.tw)*S.totalDur,0,S.totalDur);
+      KF.update(TL._drag.id,{timeSeconds:newT});
+      if(S.selKfId===TL._drag.id){
+        const el=document.getElementById('iTime');
+        if(el)el.value=newT.toFixed(1);
+      }
+      TL.render();
+    });
+    document.addEventListener('mouseup',()=>{TL._drag=null});
+    document.getElementById('tlBar').addEventListener('click',ev=>{
+      if(TL._drag)return;
+      const r=document.getElementById('kfTrack').getBoundingClientRect();
+      const pct=clamp((ev.clientX-r.left)/r.width,0,1);
+      PB.scrub(pct*S.totalDur);
+    });
+  }
+};
+
+// ─────────────────────────────────────────────────────────
+// CONTROLS UI
+// ─────────────────────────────────────────────────────────
+let _suspend=false;
+const UI={
+  refresh(){
+    const kf=KF.sel();
+    document.getElementById('kfEmpty').style.display=kf?'none':'';
+    document.getElementById('kfPanel').style.display=kf?'':'none';
+    if(!kf)return;
+    _suspend=true;
+    document.getElementById('iLabel').value=kf.label||'';
+    document.getElementById('iTime').value=kf.timeSeconds.toFixed(1);
+    document.getElementById('iLat').value=kf.lat.toFixed(5);
+    document.getElementById('iLon').value=kf.lon.toFixed(5);
+    document.getElementById('iAlt').value=kf.altKm.toFixed(3);
+    const ss=(id,vid,v,u,d=0)=>{
+      document.getElementById(id).value=v;
+      document.getElementById(vid).textContent=v.toFixed(d)+u;
+    };
+    ss('sHdg','vHdg',kf.heading,'°');
+    ss('sPch','vPch',kf.pitch,'°');
+    ss('sRoll','vRoll',kf.roll,'°');
+    ss('sFov','vFov',kf.fov,'°');
+    ss('sOrb','vOrb',kf.orbitRadiusKm,' km');
+    document.getElementById('sEase').value=kf.easingIn||'easeInOutCubic';
+    _suspend=false;
+  },
+  _upd(prop,val){
+    if(_suspend)return;
+    const kf=KF.sel();if(!kf)return;
+    KF.update(kf.id,{[prop]:val});
+    if(!S.playing){const cs=KF.interp(S.curTime);if(cs)CAM.apply(cs)}
+  },
+  bind(){
+    // Sliders
+    [['sHdg','vHdg','heading','°'],['sPch','vPch','pitch','°'],
+     ['sRoll','vRoll','roll','°'],['sFov','vFov','fov','°'],
+     ['sOrb','vOrb','orbitRadiusKm',' km']].forEach(([id,vid,prop,u])=>{
+      document.getElementById(id).addEventListener('input',()=>{
+        const v=parseFloat(document.getElementById(id).value);
+        document.getElementById(vid).textContent=v.toFixed(0)+u;
+        this._upd(prop,v);
+      });
+    });
+    // Text / number inputs
+    ['iLabel','iTime','iLat','iLon','iAlt'].forEach(id=>{
+      document.getElementById(id).addEventListener('change',()=>{
+        if(_suspend)return;
+        const kf=KF.sel();if(!kf)return;
+        const up={};
+        if(id==='iLabel')up.label=document.getElementById(id).value;
+        else{
+          const v=parseFloat(document.getElementById(id).value);
+          if(isNaN(v))return;
+          if(id==='iTime')up.timeSeconds=v;
+          if(id==='iLat')up.lat=v;
+          if(id==='iLon')up.lon=v;
+          if(id==='iAlt')up.altKm=v;
+        }
+        KF.update(kf.id,up);
+        TL.render();
+        if(!S.playing){const cs=KF.interp(S.curTime);if(cs)CAM.apply(cs)}
+      });
+    });
+    document.getElementById('sEase').addEventListener('change',e=>{
+      if(_suspend)return;
+      const kf=KF.sel();if(kf)KF.update(kf.id,{easingIn:e.target.value});
+    });
+    document.getElementById('btnGoKF').addEventListener('click',()=>{
+      const kf=KF.sel();if(!kf)return;
+      PB.scrub(kf.timeSeconds);CAM.apply(kf);
+    });
+    document.getElementById('btnDelKF').addEventListener('click',()=>{
+      const kf=KF.sel();if(!kf)return;
+      if(confirm('Delete keyframe "'+(kf.label||fmtTime(kf.timeSeconds))+'"?'))KF.remove(kf.id);
+    });
+  }
+};
+
+// ─────────────────────────────────────────────────────────
+// PLAYBACK
+// ─────────────────────────────────────────────────────────
+const PB={
+  play(){
+    if(S.keyframes.length<2){alert('Add at least 2 keyframes to play.');return}
+    S.playing=true;S.lastTs=null;
+    document.getElementById('btnPlay').textContent='⏸';
+    requestAnimationFrame(PB._tick);
+  },
+  pause(){
+    S.playing=false;
+    document.getElementById('btnPlay').textContent='▶';
+    if(viewer)viewer.camera.lookAtTransform(Cesium.Matrix4.IDENTITY);
+  },
+  stop(){
+    S.playing=false;S.curTime=0;
+    document.getElementById('btnPlay').textContent='▶';
+    TL.updHead();
+    const cs=KF.interp(0);if(cs)CAM.apply(cs);
+    if(viewer)viewer.camera.lookAtTransform(Cesium.Matrix4.IDENTITY);
+    if(S.isRec)EXP.stop();
+  },
+  toggle(){S.playing?PB.pause():PB.play()},
+  scrub(t){
+    S.curTime=clamp(t,0,S.totalDur);
+    TL.updHead();
+    const cs=KF.interp(S.curTime);if(cs)CAM.apply(cs);
+  },
+  _tick(ts){
+    if(!S.playing)return;
+    if(S.lastTs==null)S.lastTs=ts;
+    const dt=(ts-S.lastTs)/1000;S.lastTs=ts;
+    S.curTime=Math.min(S.curTime+dt,S.totalDur);
+    const cs=KF.interp(S.curTime);if(cs)CAM.apply(cs);
+    TL.updHead();
+    if(S.curTime>=S.totalDur){
+      if(S.looping){S.curTime=0;S.lastTs=null}
+      else{PB.stop();return}
+    }
+    requestAnimationFrame(PB._tick);
+  }
+};
+
+// ─────────────────────────────────────────────────────────
+// VIDEO EXPORT
+// ─────────────────────────────────────────────────────────
+const EXP={
+  _mr:null,_chunks:[],
+  toggle(){S.isRec?this.stop():this.start()},
+  start(){
+    if(!viewer||S.keyframes.length<2){alert('Need at least 2 keyframes.');return}
+    let mime='video/webm;codecs=vp9';
+    if(!MediaRecorder.isTypeSupported(mime))mime='video/webm';
+    this._chunks=[];
+    this._mr=new MediaRecorder(viewer.scene.canvas.captureStream(30),{mimeType:mime});
+    this._mr.ondataavailable=e=>{if(e.data.size>0)this._chunks.push(e.data)};
+    this._mr.onstop=()=>this._dl();
+    this._mr.start(250);
+    S.isRec=true;
+    const b=document.getElementById('btnExport');
+    b.textContent='⏹ Recording…';b.classList.add('rec');
+    PB.stop();PB.play();
+  },
+  stop(){
+    if(this._mr&&this._mr.state!=='inactive')this._mr.stop();
+    S.isRec=false;
+    const b=document.getElementById('btnExport');
+    b.textContent='⬇ Export Video';b.classList.remove('rec');
+  },
+  _dl(){
+    const url=URL.createObjectURL(new Blob(this._chunks,{type:'video/webm'}));
+    const a=Object.assign(document.createElement('a'),{href:url,download:'map-animation.webm'});
+    document.body.appendChild(a);a.click();document.body.removeChild(a);
+    setTimeout(()=>URL.revokeObjectURL(url),5000);
+  }
+};
+
+// ─────────────────────────────────────────────────────────
+// PIN MODE
+// ─────────────────────────────────────────────────────────
+function setPinMode(on){
+  S.pinMode=on;
+  ['btnPinMode','btnStartPin'].forEach(id=>
+    document.getElementById(id).classList.toggle('on',on));
+  document.body.style.cursor=on?'crosshair':'';
+}
+
+// ─────────────────────────────────────────────────────────
+// CAPTURE KEYFRAME
+// ─────────────────────────────────────────────────────────
+function captureKF(){
+  const cam=CAM.capture();if(!cam)return;
+  let t=S.curTime;
+  if(S.keyframes.some(k=>Math.abs(k.timeSeconds-t)<0.1)){
+    t=(S.keyframes[S.keyframes.length-1]?.timeSeconds||0)+5;
+  }
+  if(t>S.totalDur){
+    S.totalDur=Math.ceil(t+5);
+    document.getElementById('iDur').value=S.totalDur;
+  }
+  const kf=KF.add({...cam,timeSeconds:t});
+  S.selKfId=kf.id;
+  TL.render();UI.refresh();
+}
+
+// ─────────────────────────────────────────────────────────
+// INIT
+// ─────────────────────────────────────────────────────────
+document.addEventListener('DOMContentLoaded',async()=>{
+  TL.initEvents();
+  UI.bind();
+
+  // Duration input
+  document.getElementById('iDur').addEventListener('change',e=>{
+    const v=Math.max(1,parseFloat(e.target.value)||60);
+    S.totalDur=v;TL.render();TL.updHead();
+  });
+
+  // Playback buttons
+  document.getElementById('btnPlay').addEventListener('click',PB.toggle.bind(PB));
+  document.getElementById('btnStop').addEventListener('click',PB.stop.bind(PB));
+  document.getElementById('btnLoop').addEventListener('click',()=>{
+    S.looping=!S.looping;
+    document.getElementById('btnLoop').classList.toggle('on',S.looping);
+  });
+
+  // Export
+  document.getElementById('btnExport').addEventListener('click',EXP.toggle.bind(EXP));
+
+  // Capture KF
+  document.getElementById('btnCapture').addEventListener('click',captureKF);
+
+  // Pin mode
+  document.getElementById('btnPinMode').addEventListener('click',()=>setPinMode(!S.pinMode));
+  document.getElementById('btnStartPin').addEventListener('click',()=>setPinMode(!S.pinMode));
+
+  // Token
+  const saved=localStorage.getItem('cesiumToken')||'';
+  document.getElementById('tokenInput').value=saved;
+  document.getElementById('btnApplyToken').addEventListener('click',async()=>{
+    const tok=document.getElementById('tokenInput').value.trim();
+    localStorage.setItem('cesiumToken',tok);
+    if(viewer){viewer.destroy();viewer=null;document.getElementById('cesiumContainer').innerHTML=''}
+    await initViewer(tok);
+    TL.render();TL.updHead();
+  });
+  document.getElementById('btnTokenHelp').addEventListener('click',()=>
+    document.getElementById('tkBanner').classList.toggle('show'));
+
+  // Keyboard shortcuts
+  document.addEventListener('keydown',e=>{
+    const tag=e.target.tagName;
+    if(tag==='INPUT'||tag==='TEXTAREA'||tag==='SELECT')return;
+    if(e.code==='Space'){e.preventDefault();PB.toggle()}
+    if(e.code==='ArrowLeft'){e.preventDefault();PB.scrub(S.curTime-1)}
+    if(e.code==='ArrowRight'){e.preventDefault();PB.scrub(S.curTime+1)}
+    if(e.code==='Home'){e.preventDefault();PB.scrub(0)}
+    if(e.code==='End'){e.preventDefault();PB.scrub(S.totalDur)}
+    if(e.code==='KeyC'){e.preventDefault();captureKF()}
+    if(e.code==='KeyP'){e.preventDefault();setPinMode(!S.pinMode)}
+  });
+
+  // Init Cesium
+  await initViewer(saved);
+  TL.updHead();
+
+  // Seed demo keyframes (New York → Paris → Tokyo)
+  const k1=KF.add({label:'New York',lat:40.7128,lon:-74.006,altKm:2000,heading:0,pitch:-55,fov:60,timeSeconds:0});
+  const k2=KF.add({label:'Paris',lat:48.8566,lon:2.3522,altKm:600,heading:20,pitch:-38,fov:55,timeSeconds:25,easingIn:'easeInOutCubic'});
+  const k3=KF.add({label:'Tokyo',lat:35.6762,lon:139.6503,altKm:1500,heading:-10,pitch:-60,fov:70,timeSeconds:55,easingIn:'easeInOutExpo'});
+  S.totalDur=60;document.getElementById('iDur').value='60';
+  S.selKfId=k1.id;
+  TL.render();UI.refresh();
+  CAM.apply(k1);
+});
+</script>
+</body>
+</html>
